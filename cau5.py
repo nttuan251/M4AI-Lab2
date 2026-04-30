@@ -13,8 +13,9 @@ Khi ta giữ lại một số lượng thành phần chính nhất định (k), 
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-from sklearn.decomposition import PCA
+# from sklearn.decomposition import PCA
 
+from cau2 import *
 
 
 # a) Tiền xử lý
@@ -24,7 +25,9 @@ X = np.array(image, dtype=np.float64)
 
 # Chuẩn hóa dữ liệu
 mean_vec = np.mean(X, axis=0)
-X_centered = X - mean_vec
+X_centered = standardize_data(X)
+cov_matrix = compute_covariance_matrix(X_centered)
+eigenvalues, eigenvectors = compute_eigenvalues_and_eigenvectors(cov_matrix)
 
 # b) Áp dụng PCA
 K = [2, 5, 10, 20, 50, 100]
@@ -34,23 +37,31 @@ fig, axes = plt.subplots(2, 4, figsize=(16, 8))
 # Hàm ravel() biến mảng axes 2D thành 1D (danh sách 8 ô liên tiếp) để tiện gọi bằng vòng lặp
 axes = axes.ravel() 
 
-# Hiển thị ảnh gốc ở ô đầu tiên (index 0)
+# Hiển thị ảnh gốc ở ô đầu tiên
 axes[0].imshow(X, cmap="gray")
 axes[0].set_title("Ảnh gốc", fontsize=14)
 axes[0].axis("off")
 
 for i, k in enumerate(K):
-    pca = PCA(n_components=k)
-    X_reduced = pca.fit_transform(X_centered)
+    # Chọn k thành phần chính
+    selected_eigenvectors, _ = select_principal_components(eigenvalues, eigenvectors, k)
     
-    # c) Tái tạo ảnh
-    X_approx = pca.inverse_transform(X_reduced) + mean_vec
+    # Giảm chiều dữ liệu
+    X_reduced = project_data(X_centered, selected_eigenvectors)
     
-    # d) Đánh giá (MSE)
+    # Để tái tạo ảnh, ta nhân ngược lại với ma trận eigenvectors chuyển vị, rồi cộng lại mean_vec
+    X_approx = np.dot(X_reduced, selected_eigenvectors.T) + mean_vec
+
+    # Lấy phần thực để loại bỏ sai số do tính toán số phức
+    X_approx = np.real(X_approx)
+    
+    
+    
+    # Đánh giá (MSE)
     mse = np.mean((X - X_approx) ** 2)
     print(f"K={k}, MSE: {mse:.2f}")
     
-    # e) Trực quan hóa
+    # Trực quan hóa
     ax = axes[i + 1]
     ax.imshow(X_approx, cmap="gray")
     ax.set_title(f"K={k} (MSE: {mse:.2f})", fontsize=12)
